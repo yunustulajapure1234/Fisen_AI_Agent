@@ -91,17 +91,21 @@ app.use("/api", (_request, response) => {
     response.status(404).json({ error: "Endpoint not found." });
 });
 
-const server = app.listen(port, host, () => {
-    console.log(`FISEN Group AI Assistant is running on http://${host}:${port}`);
-});
+export default app;
 
-// Graceful shutdown
-const shutdown = (signal) => {
-    console.log(`\nReceived ${signal}. Shutting down server gracefully...`);
-    server.close(() => {
-        console.log("Server stopped.");
-        process.exit(0);
+if (!process.env.VERCEL) {
+    const server = app.listen(port, host, () => {
+        console.log(`FISEN Group AI Assistant is running on http://${host}:${port}`);
     });
-};
-process.on("SIGINT", () => shutdown("SIGINT"));
-process.on("SIGTERM", () => shutdown("SIGTERM"));
+
+    // Graceful shutdown
+    const shutdown = (signal) => {
+        console.log(`\nReceived ${signal}. Shutting down server gracefully...`);
+        server.close(() => {
+            console.log("Server stopped.");
+            process.exit(0);
+        });
+    };
+    process.on("SIGINT", () => shutdown("SIGINT"));
+    process.on("SIGTERM", () => shutdown("SIGTERM"));
+}
