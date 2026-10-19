@@ -1,0 +1,22 @@
+services:
+  fisen-assistant:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fisen-ai-assistant
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - HOST=0.0.0.0
+      - NODE_ENV=production
+      - TRUST_PROXY=true
+      - CORS_ORIGIN=*
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GROQ_MODEL=${GROQ_MODEL:-openai/gpt-oss-20b}
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - PINECONE_INDEX=${PINECONE_INDEX:-companychat-local}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

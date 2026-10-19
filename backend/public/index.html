@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f7fa">
+    <meta name="description" content="Ask the FISEN Group AI Assistant about FISEN Group services, technologies, and automation solutions.">
+    <title>FISEN Group | AI Assistant</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/vendor/marked.umd.js" defer></script>
+    <script src="/vendor/purify.min.js" defer></script>
+    <script src="/app.js" defer></script>
+</head>
+<body>
+    <div class="app-shell">
+        <header class="topbar">
+            <a class="brand" href="/" aria-label="FISEN Group home">
+                <img src="/logo.png" alt="FISEN Group" class="brand-logo" height="38">
+            </a>
+            <div class="topbar-right">
+                <span class="assistant-label">AI ASSISTANT</span>
+                <span class="status"><span class="status-dot"></span> Ready</span>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <section class="chat-panel" aria-label="Chat with the FISEN Group AI Assistant">
+                <div id="conversation" class="conversation" aria-live="polite">
+                    <div id="welcome" class="welcome">
+                        <p class="eyebrow">FISEN GROUP</p>
+                        <h1>How can I help you today?</h1>
+                        <p class="welcome-copy">Ask about the FISEN Group, our technology solutions, or automation expertise.</p>
+                        <div class="suggestions" aria-label="Suggested questions">
+                            <button class="suggestion" type="button" data-prompt="What services does FISEN Technologies provide?">
+                                <span class="suggestion-icon">↗</span>
+                                <span>What services does FISEN Technologies provide?</span>
+                            </button>
+                            <button class="suggestion" type="button" data-prompt="Which industries does FISEN Automation serve?">
+                                <span class="suggestion-icon">⌘</span>
+                                <span>Which industries does FISEN Automation serve?</span>
+                            </button>
+                            <button class="suggestion" type="button" data-prompt="How can I contact FISEN?">
+                                <span class="suggestion-icon">✳</span>
+                                <span>How can I contact FISEN?</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="messages" class="messages"></div>
+                </div>
+
+                <form id="chat-form" class="composer">
+                    <label class="sr-only" for="question">Ask the FISEN Group AI Assistant</label>
+                    <textarea id="question" name="question" rows="1" maxlength="2000"
+                        placeholder="Ask anything about FISEN..." required></textarea>
+                    <div class="composer-footer">
+                        <span class="input-hint">Enter to send · Shift+Enter for a new line</span>
+                        <div class="composer-actions">
+                            <span id="char-count" class="char-count">0 / 2000</span>
+                            <button id="send-button" class="send-button" type="submit" aria-label="Send message">
+                                <span>Send</span>
+                                <svg viewBox="0 0 20 20" aria-hidden="true">
+                                    <path d="M3.5 10h12m-5-5 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+                <p class="disclaimer">AI-generated responses may not always be accurate. Please verify important details.</p>
+            </section>
+        </main>
+    </div>
+</body>
+</html>
