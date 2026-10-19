@@ -2,6 +2,7 @@ import Groq from "groq-sdk";
 import { searchDocuments } from "./prepare.js";
 
 const MODEL = process.env.GROQ_MODEL ?? "openai/gpt-oss-20b";
+let groqClient = null;
 
 const FISEN_IDENTITY_ANSWER = 
 `I am the **Official AI Assistant of FISEN Group**, developed by **FISEN Technologies**.
@@ -39,7 +40,7 @@ export async function answerQuestion(question) {
 
     let context = "";
     try {
-        const relevantChunks = await searchDocuments(question, 8);
+        const relevantChunks = await searchDocuments(question, 3);
         if (relevantChunks.length > 0) {
             context = relevantChunks
                 .map((chunk) => `[Page ${chunk.metadata.pageNumber}]\n${chunk.pageContent}`)
@@ -49,12 +50,14 @@ export async function answerQuestion(question) {
         console.warn("Document search unavailable:", error.message);
     }
 
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    groqClient ??= new Groq({ apiKey: process.env.GROQ_API_KEY });
     const userMessageContent = context
         ? `FISEN document context:\n${context}\n\nQuestion: ${question}`
         : `Question: ${question}`;
-    const completion = await groq.chat.completions.create({
+    const completion = await groqClient.chat.completions.create({
         model: MODEL,
+        temperature: 0.1,
+        max_tokens: 1000,
         messages: [
             {
                 role: "system",

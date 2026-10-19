@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { basename } from "node:path";
 import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { Document } from "@langchain/core/documents";
 import { PineconeStore } from "@langchain/pinecone";
 import { OllamaEmbeddings } from "@langchain/ollama";
@@ -29,6 +30,8 @@ export const embeddings = new OllamaEmbeddings({
 });
 
 let pineconeClient;
+let cachedPineconeIndex = null;
+let cachedVectorStore = null;
 
 function getPineconeClient() {
     if (!process.env.PINECONE_API_KEY) {
@@ -40,36 +43,13 @@ function getPineconeClient() {
 }
 
 async function getPineconeIndex() {
+    if (cachedPineconeIndex) {
+        return cachedPineconeIndex;
+    }
+
     const pinecone = getPineconeClient();
-    const { indexes = [] } = await pinecone.listIndexes();
-    const indexExists = indexes.some((index) => index.name === INDEX_NAME);
-
-    if (!indexExists) {
-        console.log(`Creating Pinecone index "${INDEX_NAME}" (${INDEX_DIMENSION} dimensions)...`);
-        await pinecone.createIndex({
-            name: INDEX_NAME,
-            dimension: INDEX_DIMENSION,
-            metric: "cosine",
-            spec: { serverless: pineconeRegion },
-            waitUntilReady: true,
-            suppressConflicts: true,
-        });
-    }
-
-    const description = await pinecone.describeIndex(INDEX_NAME);
-    if (description.dimension !== INDEX_DIMENSION) {
-        throw new Error(
-            `Pinecone index "${INDEX_NAME}" has dimension ${description.dimension}; ` +
-            `the ${EMBEDDING_MODEL} model outputs ${INDEX_DIMENSION}. ` +
-            "Use a separate index with the matching dimension."
-        );
-    }
-    if (!description.status?.ready) {
-        throw new Error(`Pinecone index "${INDEX_NAME}" is not ready yet.`);
-    }
-
-    console.log(`Using ready Pinecone index "${INDEX_NAME}" (${description.dimension} dimensions).`);
-    return pinecone.index(INDEX_NAME);
+    cachedPineconeIndex = pinecone.index(INDEX_NAME);
+    return cachedPineconeIndex;
 }
 
 function normalizeText(text) {
@@ -216,23 +196,75 @@ export async function indexCompanyProfile(filepath) {
     console.log(`Verified ${verifiedCount}/${chunks.length} profile vectors in "${INDEX_NAME}".`);
 }
 
-export async function searchDocuments(query, k = 6) {
+export async function searchLocalText(query, k = 3) {
+    try {
+        const dataPath = fileURLToPath(new URL("./fisen_profile_text.json", import.meta.url));
+        const raw = await readFile(dataPath, "utf8");
+        const pages = JSON.parse(raw);
+        const terms = query
+            .toLowerCase()
+            .split(/\W+/)
+            .filter((w) => w.length > 2);
+
+        const scored = pages
+            .map((page) => {
+                const text = page.text.toLowerCase();
+                let score = 0;
+                for (const term of terms) {
+                    const count = text.split(term).length - 1;
+                    score += count;
+                }
+                return {
+                    pageContent: page.text,
+                    metadata: { pageNumber: page.page },
+                    score,
+                };
+            })
+            .sort((a, b) => b.score - a.score);
+
+        return scored.slice(0, k);
+    } catch (err) {
+        console.warn("searchLocalText fallback failed:", err.message);
+        return [];
+    }
+}
+
+export async function searchDocuments(query, k = 3) {
     if (typeof query !== "string" || query.trim().length === 0) {
         throw new Error("A non-empty query is required.");
     }
 
-    const pineconeIndex = await getPineconeIndex();
-    const vectorStore = await PineconeStore.fromExistingIndex(embeddings, {
-        pineconeIndex,
-        filter: { sourceId: SOURCE_ID },
-    });
-    const results = await vectorStore.similaritySearch(query, k * 3);
-    const uniqueResults = new Map();
-    for (const document of results) {
-        const key = `${document.metadata.pageNumber}:${normalizeText(document.pageContent)}`;
-        if (!uniqueResults.has(key)) {
-            uniqueResults.set(key, document);
-        }
+    // On Vercel or when Ollama is unreachable, immediately use fast local text search
+    if (process.env.VERCEL || !process.env.PINECONE_API_KEY) {
+        return searchLocalText(query, k);
     }
-    return [...uniqueResults.values()].slice(0, k);
+
+    // Race Pinecone/Ollama against a 1.5-second timeout so requests are always lightning fast
+    try {
+        const pineconePromise = (async () => {
+            const pineconeIndex = await getPineconeIndex();
+            cachedVectorStore ??= await PineconeStore.fromExistingIndex(embeddings, {
+                pineconeIndex,
+                filter: { sourceId: SOURCE_ID },
+            });
+            const results = await cachedVectorStore.similaritySearch(query, k);
+            const uniqueResults = new Map();
+            for (const document of results) {
+                const key = `${document.metadata.pageNumber}:${normalizeText(document.pageContent)}`;
+                if (!uniqueResults.has(key)) {
+                    uniqueResults.set(key, document);
+                }
+            }
+            return [...uniqueResults.values()].slice(0, k);
+        })();
+
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Pinecone vector search timed out")), 1500)
+        );
+
+        return await Promise.race([pineconePromise, timeoutPromise]);
+    } catch (error) {
+        console.warn("Pinecone vector search unavailable or timed out, using instant local text search:", error.message);
+        return searchLocalText(query, k);
+    }
 }

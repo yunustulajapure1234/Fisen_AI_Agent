@@ -2,7 +2,7 @@
   "version": 2,
   "functions": {
     "backend/server.js": {
-      "includeFiles": "backend/public/**"
+      "includeFiles": "backend/public/**,backend/fisen_profile_text.json"
     }
   },
   "rewrites": [
