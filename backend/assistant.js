@@ -37,18 +37,22 @@ export async function answerQuestion(question) {
         };
     }
 
-    const relevantChunks = await searchDocuments(question, 8);
-    if (relevantChunks.length === 0) {
-        return {
-            answer: "I couldn't find relevant information about that in the FISEN company documentation.",
-            sources: [],
-        };
+    let context = "";
+    try {
+        const relevantChunks = await searchDocuments(question, 8);
+        if (relevantChunks.length > 0) {
+            context = relevantChunks
+                .map((chunk) => `[Page ${chunk.metadata.pageNumber}]\n${chunk.pageContent}`)
+                .join("\n\n");
+        }
+    } catch (error) {
+        console.warn("Document search unavailable:", error.message);
     }
 
-    const context = relevantChunks
-        .map((chunk) => `[Page ${chunk.metadata.pageNumber}]\n${chunk.pageContent}`)
-        .join("\n\n");
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    const userMessageContent = context
+        ? `FISEN document context:\n${context}\n\nQuestion: ${question}`
+        : `Question: ${question}`;
     const completion = await groq.chat.completions.create({
         model: MODEL,
         messages: [
@@ -69,7 +73,7 @@ export async function answerQuestion(question) {
             },
             {
                 role: "user",
-                content: `FISEN document context:\n${context}\n\nQuestion: ${question}`,
+                content: userMessageContent,
             },
         ],
     });

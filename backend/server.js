@@ -1,3 +1,14 @@
+// Polyfill browser globals required by legacy modules in serverless/Node environments
+if (typeof globalThis.DOMMatrix === "undefined") {
+    globalThis.DOMMatrix = class DOMMatrix {};
+}
+if (typeof globalThis.ImageData === "undefined") {
+    globalThis.ImageData = class ImageData {};
+}
+if (typeof globalThis.Path2D === "undefined") {
+    globalThis.Path2D = class Path2D {};
+}
+
 import "dotenv/config";
 import express from "express";
 import helmet from "helmet";
@@ -39,6 +50,15 @@ app.use(cors({ origin: allowedOrigins }));
 
 app.use(express.json({ limit: "16kb" }));
 app.use(express.static(frontendPath, { maxAge: "1h" }));
+
+// Explicit root and favicon handlers for Vercel and serverless functions
+app.get("/", (_request, response) => {
+    response.sendFile(fileURLToPath(new URL("./public/index.html", import.meta.url)));
+});
+
+app.get(["/favicon.ico", "/favicon.png"], (_request, response) => {
+    response.sendFile(fileURLToPath(new URL("./public/logo.png", import.meta.url)));
+});
 
 // Rate-limiting for chat endpoint to protect against abuse and API quotas
 const chatLimiter = rateLimit({

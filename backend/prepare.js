@@ -2,7 +2,6 @@ import "dotenv/config";
 import { basename } from "node:path";
 import { readFile } from "node:fs/promises";
 import { Document } from "@langchain/core/documents";
-import { PDFParse } from "pdf-parse";
 import { PineconeStore } from "@langchain/pinecone";
 import { OllamaEmbeddings } from "@langchain/ollama";
 import { Pinecone } from "@pinecone-database/pinecone";
@@ -78,6 +77,7 @@ function normalizeText(text) {
 }
 
 async function extractProfilePages(filepath) {
+    const { PDFParse } = await import("pdf-parse");
     const parser = new PDFParse({ data: await readFile(filepath) });
     let info;
     let extracted;
